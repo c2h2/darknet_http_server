@@ -29,13 +29,14 @@ AI CCTV Dashboard
         <tr v-for="(camera, index) in cameras">
           <td class="col-md-1">[[index]]_[[camera.cam_name]]</td>
           <td class="col-md-4"><img v-bind:src="camera.pic_path" width="300"/></td>
-          <td class="col-md-2">[[camera.num_persons]], [[camera.num_luggages]]</td>
+          <td class="col-md-2">人数：[[camera.num_persons]], 箱包数：[[camera.num_luggages]]</td>
           <td class="col-md-2">
             <div class="chart-container" style="width:200px; height:100px;">
               <canvas v-bind:id="'bar'+index"></canvas>
             </div>
           </td>
-          <td class="col-md-2">[[camera.created_at]]</td>
+          <td class="col-md-2" v-if = "camera.created_at_min > 0">[[camera.created_at_min]]分钟,[[camera.created_at_sec]]秒前</td>
+          <td class="col-md-2" v-else>[[camera.created_at_sec]]秒前</td>
         </tr>
       </tbody>
     </table>
@@ -72,7 +73,7 @@ var app = new Vue({
 setInterval(function(){
   $.getJSON("/api/camera_detections", function(response_data){
     app.cameras=response_data;
-    renew_charts(app.cameras.length); 
+    renew_charts(app.cameras.length);
   });
 },1500);
 
@@ -86,18 +87,18 @@ function renew_charts(num){
       (function(index){
         $.getJSON("/api/resampled_dets/"+app.cameras[i].cam_name, function(response_data){
           for(j=0; j<chart_len; j++){
-            charts[index].data.datasets[0].data[chart_len -j ]=response_data[j].num_persons; //reverse and ditch last minute    
+            charts[index].data.datasets[0].data[j]=response_data[j].num_persons; //reverse and ditch last minute
             this_num_persons=charts[index].data.datasets[0].data[j];
-            if(this_num_persons < 1.0 ){
-              charts[index].data.datasets[0].backgroundColor[j]="#AAAAAA";    
+            if(this_num_persons < 1.0 && this_num_persons>0 ){
+              charts[index].data.datasets[0].backgroundColor[j]="#AAAAAA";
             }else if(this_num_persons >=1.0 && this_num_persons < 2.0){
               charts[index].data.datasets[0].backgroundColor[j]="#22AA22";
             }else if(this_num_persons >=2.0 && this_num_persons < 4.0){
               charts[index].data.datasets[0].backgroundColor[j]="#FF4500";
-            }else if(this_num_persons>4.0){
+            }else if(this_num_persons>=4.0){
               charts[index].data.datasets[0].backgroundColor[j]="#AA2222";
             }
-          }
+          };
           charts[index].update();
         }); //ajax call end
       })(i); //function(index) pass i to index
@@ -105,10 +106,10 @@ function renew_charts(num){
       charts[i]=new Chart(document.getElementById("bar"+i), {
         type: 'bar',
         data: {
-          labels: ["-19", "-18", "-17", "-16", "-15", "-14","-13","-12","-11","-10","-9","-8","-7","-6","-5","-4","-3","-2","-1","0"],
+          labels: ["0", "1", "2", "3", "4", "5","6","7","8","9","10","11","12","13","14","15","16","17","18","19"],
           datasets: [{
             label: "people",
-            backgroundColor: ["#AAAAAA", "#AAAAAA"],
+            backgroundColor: [],
             data: new Array(chart_len+1).join('0').split(''),
             borderColor: '#555555',
             borderWidth: 1
@@ -138,6 +139,9 @@ function renew_charts(num){
               },
               ticks:{
                 maxTicksLimit: 1,
+                beginAtZero:true,
+                barPercentage: 1.00,
+                categoryPercentage: 1.00,
                 _min: -0.1 
               }
             }]

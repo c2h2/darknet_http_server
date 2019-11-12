@@ -1,7 +1,7 @@
 {% extends "bootstrap/base.html" %}
 
 {% block title %}
-AI Settings
+AI Devices
 {% endblock %}
 
 {% block styles %}
@@ -11,4 +11,63 @@ AI Settings
 
 {% block content %}
 
+
+
+<div class="container" id="app">
+
+    <table class="table table-sm table-hover table-dark">
+      <thead>
+        <tr>
+          <th scope="col" class="col-md-2">序号</th>
+          <th scope="col" class="col-md-2">设备名称</th>
+          <th scope="col" class="col-md-2">设备ip</th>
+          <th scope="col" class="col-md-2">设备版本</th>
+          <th scope="col" class="col-md-2">设备状态</th>
+          <th scope="col" class="col-md-2">设备供应商</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="camera in cameras">
+          <td class="col-md-2">[[camera.id]]</td>
+          <td class="col-md-2">[[camera.name]]</td>
+          <td class="col-md-2">[[camera.ip]]</td>
+          <td class="col-md-2">[[camera.method]]</td>
+          <td class="col-md-2">[[camera.type]]</td>
+          <td class="col-md-2">[[camera.chart]]</td>
+        </tr>
+      </tbody>
+    </table>
+
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.1/Chart.min.js"></script>
+<script src="https://unpkg.com/vue-chartjs/dist/vue-chartjs.min.js"></script>
+
+<script>
+
+var charts=[];
+
+var app = new Vue({
+  el: '#app',
+  delimiters: ['[[',']]'],
+  data: {
+      msg:"12341231",
+      imageSRC: "/static/default.jpg",
+      cameras: []
+  },
+  created:function(){
+      console.log("APP started.");
+
+  },
+  mounted:function(){
+    var _this=this;
+    $.getJSON("/devices/get_info", function(response_data){
+      _this.cameras=response_data.data;
+
+    });
+
+  }
+});
+
+</script>
 {% endblock %}
+

@@ -484,6 +484,9 @@ def camera_detections():
 
         cam_dict["num_persons"] = num_persons
         cam_dict["num_luggages"] = num_luggages
+        diff_time = datetime.datetime.now() - cam_dict["created_at"]
+        cam_dict["created_at_min"] = (diff_time.days*24*60*60+diff_time.seconds-8*60*60)//60
+        cam_dict["created_at_sec"] = (diff_time.days * 24 * 60 * 60 + diff_time.seconds - 8 * 60 * 60) % 60
 
         ret.append(cam_dict)
 
@@ -722,20 +725,54 @@ def gen_hour_stats():
         dets.append([])
         for y in range(7):
             dets[x].append(0)
-    six_day_ago = (datetime.datetime.now() - datetime.timedelta(days=6)).strftime("%Y-%m-%d 00:00:00")
+    six_day_ago = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime("%Y-%m-%d 16:00:00")
     _dets = db.session.query(CAMDetectionHour.sampled_at, func.sum(CAMDetectionHour.num_persons).label("num_persons")).\
-        filter(CAMDetectionHour.sampled_at > six_day_ago, CAMDetectionHour.num_persons > 0).group_by(
+        filter(CAMDetectionHour.sampled_at >= six_day_ago, CAMDetectionHour.num_persons > 0).group_by(
         CAMDetectionHour.sampled_at).order_by(
         CAMDetectionHour.sampled_at.desc()).all()
 
     for det in _dets:
-        hour = int(det[0].strftime("%Y-%m-%d %H:%M:%S")[11:13]) - 1
-        if hour == -1:
-            week = det[0].weekday() % 7
+        hour = (int(det[0].strftime("%Y-%m-%d %H:%M:%S")[11:13]) + 8) % 24
+        if 0 <= hour < 8:
+            week = (det[0].weekday()+2) % 7
         else:
-            week = (det[0].weekday() + 1) % 7
+            week = (det[0].weekday()+1) % 7
 
         num_persons = det[1] if det[1] >= 0 else 0
         print(hour, week, num_persons)
         dets[hour][week] = num_persons
+    return jsonify({"data": dets})
+
+
+@app.route('/devices/get_info')
+def get_info():
+    cameras = app.config['cameras']
+    dets = []
+    for camera in cameras:
+        camera_dict = dict()
+        camera_dict['id'] = camera.get("id",None)
+        camera_dict['name'] = camera.get("name",None)
+        uri = camera.get('uri',None)
+        if uri:
+            camera_dict['ip'] = uri.split('/')[2]
+        else:
+            camera_dict['ip'] = ""
+        camera_dict['method'] = camera.get("method", None)
+        camera_dict['type'] = camera.get("type", None)
+        camera_dict['chart'] = camera.get("chart", None)
+        dets.append(camera_dict)
+    return jsonify({"data": dets})
+
+
+@app.route('/settings/all_stats', methods=["POST","GET"])
+def all_stats():
+    # cam_id = request.post("cam_id",None)
+    cam_id = "1"
+    _dets = db.session.query(CAMDetectionMin.sampled_at, CAMDetectionMin.num_persons).\
+        filter(CAMDetectionMin.cam_id == cam_id,CAMDetectionMin.num_persons>=0).order_by(
+        CAMDetectionMin.sampled_at.desc()).limit(24*60).all()
+    dets = []
+    for el in _dets:
+        t = int(("").join(el[0].strftime("%Y-%m-%d %H:%M:%S")[11:16].split(":")))
+        dets.append([t, el[1]])
     return jsonify({"data": dets})

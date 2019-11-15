@@ -1,0 +1,7 @@
+flask
+Flask-Bootstrap
+sqlalchemy
+flask_sqlalchemy
+numpy
+pandas
+requests

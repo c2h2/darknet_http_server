@@ -28,16 +28,22 @@ import random
 import os
 import json
 import os
+from decimal import Decimal
+
 import cv2
 import time
 import shutil
 import datetime
+
+import requests
 from flask import jsonify
 from flask_bootstrap import Bootstrap
 from flask import Flask, render_template, request, request, redirect, url_for, send_from_directory
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
+import platform
+import psutil
 
 # some global names
 netMain = None
@@ -484,6 +490,9 @@ def camera_detections():
 
         cam_dict["num_persons"] = num_persons
         cam_dict["num_luggages"] = num_luggages
+        diff_time = datetime.datetime.now() - cam_dict["created_at"]
+        cam_dict["created_at_min"] = (diff_time.days*24*60*60+diff_time.seconds-8*60*60)//60
+        cam_dict["created_at_sec"] = (diff_time.days * 24 * 60 * 60 + diff_time.seconds - 8 * 60 * 60) % 60
 
         ret.append(cam_dict)
 
@@ -722,20 +731,79 @@ def gen_hour_stats():
         dets.append([])
         for y in range(7):
             dets[x].append(0)
-    six_day_ago = (datetime.datetime.now() - datetime.timedelta(days=6)).strftime("%Y-%m-%d 00:00:00")
+    six_day_ago = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime("%Y-%m-%d 16:00:00")
     _dets = db.session.query(CAMDetectionHour.sampled_at, func.sum(CAMDetectionHour.num_persons).label("num_persons")).\
-        filter(CAMDetectionHour.sampled_at > six_day_ago, CAMDetectionHour.num_persons > 0).group_by(
+        filter(CAMDetectionHour.sampled_at >= six_day_ago, CAMDetectionHour.num_persons > 0).group_by(
         CAMDetectionHour.sampled_at).order_by(
         CAMDetectionHour.sampled_at.desc()).all()
 
     for det in _dets:
-        hour = int(det[0].strftime("%Y-%m-%d %H:%M:%S")[11:13]) - 1
-        if hour == -1:
-            week = det[0].weekday() % 7
+        hour = (int(det[0].strftime("%Y-%m-%d %H:%M:%S")[11:13]) + 8) % 24
+        if 0 <= hour < 8:
+            week = (det[0].weekday()+2) % 7
         else:
-            week = (det[0].weekday() + 1) % 7
+            week = (det[0].weekday()+1) % 7
 
         num_persons = det[1] if det[1] >= 0 else 0
         print(hour, week, num_persons)
         dets[hour][week] = num_persons
+    return jsonify({"data": dets})
+
+
+@app.route('/devices/get_info')
+def get_info():
+    cameras = app.config['cameras']
+    dets = []
+    for camera in cameras:
+        camera_dict = dict()
+        camera_dict['id'] = camera.get("id",None)
+        camera_dict['name'] = camera.get("name",None)
+        uri = camera.get('uri',None)
+        if uri:
+            camera_dict['ip'] = uri.split('/')[2]
+        else:
+            camera_dict['ip'] = ""
+        camera_dict['method'] = camera.get("method", None)
+        camera_dict['chart'] = camera.get("chart", None)
+        if camera_dict['method'] == "HTTP":
+            try:
+                res1 = requests.get(uri, timeout=1)
+                if res1.status_code == 200:
+                    camera_dict['type'] = "NORMAL"
+                else:
+                    camera_dict['type'] = "DISCONNECT"
+            except:
+                camera_dict['type'] = "DISCONNECT"
+            dets.append(camera_dict)
+    return jsonify({"data": dets})
+
+
+@app.route('/devices/get_computer_info')
+def get__computer_info():
+    computer = platform.uname()
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage("/home")
+    dets = dict()
+    dets["computer_name"] = computer.node
+    dets["computer_system"] = computer.system
+    dets["computer_system_version"] = computer.version
+    dets["computer_processor"] = computer.processor
+    dets["mem_total"] = str(Decimal(mem.total/1024/1024/1024).quantize(Decimal('0.0')))+"G"
+    dets["mem_persent"] = str(mem.percent)+"%"
+    dets["disk_total"] = str(Decimal(disk.total/1024/1024/1024).quantize(Decimal('0.0')))+"G"
+    dets["disk_persent"] = str(disk.percent)+"%"
+    return jsonify({"data": dets})
+
+
+
+@app.route('/settings/all_stats', methods=["POST","GET"])
+def all_stats():
+    # cam_id = request.post("cam_id",None)
+    cam_ids = ["1","3","4"]
+    dets = []
+    for cam_id in cam_ids:
+        _dets = db.session.query(CAMDetectionMin.num_persons).\
+            filter(CAMDetectionMin.cam_id == cam_id).order_by(
+            CAMDetectionMin.sampled_at.desc()).limit(7).all()
+        dets.append([_dets[0][0],_dets[1][0],_dets[2][0],_dets[3][0],_dets[4][0],_dets[5][0],_dets[6][0]])
     return jsonify({"data": dets})

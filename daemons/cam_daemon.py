@@ -20,10 +20,11 @@ def fetch_n_post(_id, name, url):
     fn="/tmp/"+str(PID)+"_"+ str(name) + "_cam_ftech.jpg"
     #print(fn)
     fn2=date_string+".txt"
-    res1 = requests.get(url)
+
+    res1 = requests.get(url, timeout=10)
     if res1.status_code == 200:
         print(str(cnt) + " 200 " + url)
-        cnt =  cnt + 1
+        cnt = cnt + 1
         with open(fn, 'wb') as f:
             f.write(res1.content)
 

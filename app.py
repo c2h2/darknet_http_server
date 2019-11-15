@@ -28,16 +28,22 @@ import random
 import os
 import json
 import os
+from decimal import Decimal
+
 import cv2
 import time
 import shutil
 import datetime
+
+import requests
 from flask import jsonify
 from flask_bootstrap import Bootstrap
 from flask import Flask, render_template, request, request, redirect, url_for, send_from_directory
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
+import platform
+import psutil
 
 # some global names
 netMain = None
@@ -758,21 +764,46 @@ def get_info():
         else:
             camera_dict['ip'] = ""
         camera_dict['method'] = camera.get("method", None)
-        camera_dict['type'] = camera.get("type", None)
         camera_dict['chart'] = camera.get("chart", None)
-        dets.append(camera_dict)
+        if camera_dict['method'] == "HTTP":
+            try:
+                res1 = requests.get(uri, timeout=1)
+                if res1.status_code == 200:
+                    camera_dict['type'] = "NORMAL"
+                else:
+                    camera_dict['type'] = "DISCONNECT"
+            except:
+                camera_dict['type'] = "DISCONNECT"
+            dets.append(camera_dict)
     return jsonify({"data": dets})
+
+
+@app.route('/devices/get_computer_info')
+def get__computer_info():
+    computer = platform.uname()
+    mem = psutil.virtual_memory()
+    disk = psutil.disk_usage("/home")
+    dets = dict()
+    dets["computer_name"] = computer.node
+    dets["computer_system"] = computer.system
+    dets["computer_system_version"] = computer.version
+    dets["computer_processor"] = computer.processor
+    dets["mem_total"] = str(Decimal(mem.total/1024/1024/1024).quantize(Decimal('0.0')))+"G"
+    dets["mem_persent"] = str(mem.percent)+"%"
+    dets["disk_total"] = str(Decimal(disk.total/1024/1024/1024).quantize(Decimal('0.0')))+"G"
+    dets["disk_persent"] = str(disk.percent)+"%"
+    return jsonify({"data": dets})
+
 
 
 @app.route('/settings/all_stats', methods=["POST","GET"])
 def all_stats():
     # cam_id = request.post("cam_id",None)
-    cam_id = "1"
-    _dets = db.session.query(CAMDetectionMin.sampled_at, CAMDetectionMin.num_persons).\
-        filter(CAMDetectionMin.cam_id == cam_id,CAMDetectionMin.num_persons>=0).order_by(
-        CAMDetectionMin.sampled_at.desc()).limit(24*60).all()
+    cam_ids = ["1","3","4"]
     dets = []
-    for el in _dets:
-        t = int(("").join(el[0].strftime("%Y-%m-%d %H:%M:%S")[11:16].split(":")))
-        dets.append([t, el[1]])
+    for cam_id in cam_ids:
+        _dets = db.session.query(CAMDetectionMin.num_persons).\
+            filter(CAMDetectionMin.cam_id == cam_id).order_by(
+            CAMDetectionMin.sampled_at.desc()).limit(7).all()
+        dets.append([_dets[0][0],_dets[1][0],_dets[2][0],_dets[3][0],_dets[4][0],_dets[5][0],_dets[6][0]])
     return jsonify({"data": dets})

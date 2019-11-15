@@ -35,7 +35,7 @@ AI CCTV Dashboard
               <canvas v-bind:id="'bar'+index"></canvas>
             </div>
           </td>
-          <td class="col-md-2" v-if = "camera.created_at_min > 0">[[camera.created_at_min]]分钟,[[camera.created_at_sec]]秒前</td>
+          <td class="col-md-2" v-if = "camera.created_at_min > 0">已离线</td>
           <td class="col-md-2" v-else>[[camera.created_at_sec]]秒前</td>
         </tr>
       </tbody>
@@ -97,6 +97,17 @@ function renew_charts(num){
               charts[index].data.datasets[0].backgroundColor[j]="#FF4500";
             }else if(this_num_persons>=4.0){
               charts[index].data.datasets[0].backgroundColor[j]="#AA2222";
+            };
+            charts[index].data.datasets[1].data[j]=response_data[j].num_luggages; //reverse and ditch last minute
+            this_num_persons=charts[index].data.datasets[1].data[j];
+            if(this_num_persons < 1.0 && this_num_persons>0 ){
+              charts[index].data.datasets[1].backgroundColor[j]="#AAAAAA";
+            }else if(this_num_persons >=1.0 && this_num_persons < 2.0){
+              charts[index].data.datasets[1].backgroundColor[j]="#22AA22";
+            }else if(this_num_persons >=2.0 && this_num_persons < 4.0){
+              charts[index].data.datasets[1].backgroundColor[j]="#FF4500";
+            }else if(this_num_persons>=4.0){
+              charts[index].data.datasets[1].backgroundColor[j]="#AA2222";
             }
           };
           charts[index].update();
@@ -111,9 +122,17 @@ function renew_charts(num){
             label: "people",
             backgroundColor: [],
             data: new Array(chart_len+1).join('0').split(''),
-            borderColor: '#555555',
+            borderColor: '#000',
             borderWidth: 1
-          }]
+          },
+          {
+            label: "luggages",
+            backgroundColor: [],
+            data: new Array(chart_len+1).join('0').split(''),
+            borderColor: '#fff',
+            borderWidth: 1
+          }
+          ]
         },
         options: {
           responsive: true,     

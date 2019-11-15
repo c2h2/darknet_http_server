@@ -17,33 +17,52 @@ AI Settings
        var myChart = echarts.init(dom);
        var app = {};
        option = null;
+       app.title = '极坐标系下的堆叠柱状图';
+
        option = {
-           xAxis: {
-               scale: true,
-               barPercentage: 1.00,
-               categoryPercentage: 1.00,
-               splitNumber: 24
+           angleAxis: {
+               type: 'category',
+               data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+               z: 10
            },
-           yAxis: {
-               scale: true,
-               beginAtZero:true
+           radiusAxis: {
+           },
+           polar: {
            },
            series: [{
-               type: 'effectScatter',
-               symbolSize: 20,
-               data: [
-
-               ]
-           }, {
-               type: 'scatter',
+               type: 'bar',
+               coordinateSystem: 'polar',
                data: [],
-           }]
+               name: 'A',
+               stack: 'a'
+           }, {
+               type: 'bar',
+               data: [],
+               coordinateSystem: 'polar',
+               name: 'B',
+               stack: 'a'
+           }, {
+               type: 'bar',
+               data: [],
+               coordinateSystem: 'polar',
+               name: 'C',
+               stack: 'a'
+           }],
+           legend: {
+               show: true,
+               data: ['A', 'B', 'C']
+           }
        };
+
 
 
        function getInfo(){
        $.getJSON("/settings/all_stats", function(response_data){
-           option.series[1].data = response_data.data;
+           res_data = response_data.data;
+           option.series[0].data = res_data[0];
+           option.series[1].data = res_data[1];
+           option.series[2].data = res_data[2];
+
            if (option && typeof option === "object") {
            myChart.setOption(option, true);
        }
